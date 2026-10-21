@@ -30,7 +30,7 @@ def strata(d, flag):
 
 if __name__ == "__main__":
     d = pd.read_csv(os.path.join(ROOT, "data", "cbis_predictions.csv"))
-    d["p"] = d[[f"p_seed{s}" for s in range(5)]].mean(1)
+    d["p"] = d[[f"p_seed{s}" for s in range(5)]].mean(axis=1)
     va, te = d[d.split == "val"], d[d.split == "test"]
     fpr, tpr, thr = roc_curve(va.malignant, va.p)
     t = float(thr[np.argmax(tpr - fpr)])

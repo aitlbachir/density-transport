@@ -39,7 +39,7 @@ bash run_all.sh            # CPU, about 3 minutes
 | Eq. (2), Fig. 1, E1 (both simulation settings) | `experiments/e1_simulation.py`, `experiments/make_figure.py` | none; `data/rsna_counts_flag10.csv` for the RSNA-profile setting | `results/e1.json`, `figures/fig_coverage.tex` |
 | E3, E4 (published evaluations, local validation) | `experiments/e3_published.py` | `data/published_counts.json` | `results/e3_e4.json` |
 | E2, RSNA age shift (pre-specified) | `experiments/rsna_prespecified.py` | `data/rsna_counts_flag10.csv`, `data/rsna_counts_flag5.csv` | `results/rsna_prespecified.json` |
-| E2, RSNA post hoc (woman-level odds ratios, check, re-setting, unit shift, 1024-px rerun) | `experiments/rsna_posthoc.py` | out-of-fold scores of the training notebook (see below) | `results/rsna_posthoc_512.json`, `results/rsna_posthoc_1024.json` |
+| E2, RSNA post hoc (woman-level odds ratios, check, re-setting, unit shift, 1024-px rerun) | `experiments/rsna_posthoc.py`, run on Kaggle by `kaggle/reproduce.ipynb` | out-of-fold scores of the training notebook (see below) | `results/rsna_posthoc_512.json`, `results/rsna_posthoc_1024.json`; full run log in `kaggle/output_v7.txt` |
 | E2, CBIS-DDSM | `experiments/cbis_case.py` | `data/cbis_predictions.csv` | `results/cbis.json` |
 | Every number in the paper | `audit.py` | `results/*.json` | printed list; `--tex PAPER.tex` checks the manuscript |
 
@@ -57,6 +57,9 @@ then
 python experiments/rsna_posthoc.py RUN_DIR 512      # RUN_DIR holds oof_breast.csv and folds.csv
 ```
 
+`kaggle/reproduce.ipynb` does this for both runs with the training notebooks attached as inputs;
+`kaggle/output_v7.txt` is the output of that run (commit a42d899).
+
 The 1024 x 1024 rerun used the same notebook with the 1024 x 1024 PNGs, 12 epochs, batch size 16 and
 augmentation on the GPU. `results/rsna_posthoc_*.json` are the outputs of these two runs.
 
@@ -66,7 +69,8 @@ augmentation on the GPU. `results/rsna_posthoc_*.json` are the outputs of these 
 the official test split, the malignancy probability of five EfficientNet-B0 models (ImageNet weights,
 512 x 512 ROI crops, 30 epochs, AdamW, learning rate 3e-4, batch size 16, auxiliary BI-RADS shape and
 margin heads with weight 0.5, checkpoint with the best validation AUC; seeds 0 to 4). Masses with an
-unknown margin are excluded. CBIS-DDSM is distributed by The Cancer Imaging Archive under CC BY 3.0
+unknown margin are excluded. `kaggle/export_cbis_predictions.py` collects the predictions of the five runs and
+`tools/make_cbis_predictions.py` adds the density and view from the official CBIS-DDSM tables. CBIS-DDSM is distributed by The Cancer Imaging Archive under CC BY 3.0
 (R. S. Lee et al., Sci. Data 4, 170177, 2017).
 
 ## Layout
