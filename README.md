@@ -57,6 +57,11 @@ then
 python experiments/rsna_posthoc.py RUN_DIR 512      # RUN_DIR holds oof_breast.csv and folds.csv
 ```
 
+The two training runs are public on Kaggle with their logs and outputs:
+[512 x 512](https://www.kaggle.com/code/aitlbachirilhame/notebookd8d59c49e8) and
+[1024 x 1024](https://www.kaggle.com/code/aitlbachirilhame/fork-of-notebookd8d59c49e8).
+The analysis plan cited there as `PREREGISTRATION_RSNA.md` is `docs/rsna_analysis_plan.md`.
+
 `kaggle/reproduce.ipynb` does this for both runs with the training notebooks attached as inputs;
 `kaggle/output_v7.txt` is the output of that run (commit a42d899).
 
