@@ -28,32 +28,36 @@ def sidak(delta, G):
 
 
 def _clean(k, n, q):
+    """All G strata are kept, as in Eq. (3) and Proposition 2: a stratum without source cases has
+    l_d = 0 (exact) and S_d ~ Beta(1/2, 1/2) (Jeffreys); q is only normalised to sum to one."""
     k, n, q = (np.asarray(x, float) for x in (k, n, q))
-    keep = n > 0
-    k, n, q = k[keep], n[keep], q[keep]
     return k, n, q / q.sum()
 
 
 def point(k, n, q):
+    """Point value sum_d q_d k_d / n_d; undefined when a stratum with q_d > 0 has no source cases,
+    so such strata are dropped and q renormalised (point value only, never a certificate)."""
     k, n, q = _clean(k, n, q)
-    return float(q @ (k / n))
+    keep = n > 0
+    return float(q[keep] @ (k[keep] / n[keep]) / q[keep].sum())
 
 
 def exact(k, n, q, delta=DELTA):
-    """Eq. (3): sum_d q_d l_d with Sidak-level Clopper-Pearson bounds."""
+    """Eq. (3): sum_d q_d l_d with Sidak-level Clopper-Pearson bounds over all G strata."""
     k, n, q = _clean(k, n, q)
     a = sidak(delta, len(k))
     return float(q @ np.array([cp_lower(ki, ni, a) for ki, ni in zip(k, n)]))
 
 
 def any_mix(k, n, delta=DELTA):
+    """Eq. (3): min_d l_d over all G strata."""
     k, n, _ = _clean(k, n, np.ones(len(k)))
     a = sidak(delta, len(k))
     return min(cp_lower(ki, ni, a) for ki, ni in zip(k, n))
 
 
 def jeffreys(k, n, q, delta=DELTA, draws=4_000_000, seed=20261019, rng=None):
-    """delta-quantile of sum_d q_d S_d, S_d ~ Beta(k_d + 1/2, n_d - k_d + 1/2)."""
+    """delta-quantile of sum_d q_d S_d, S_d ~ Beta(k_d + 1/2, n_d - k_d + 1/2), all G strata."""
     k, n, q = _clean(k, n, q)
     rng = rng if rng is not None else np.random.default_rng(seed)
     s = np.zeros(draws)
@@ -69,8 +73,11 @@ def pooled(k, n, delta=DELTA):
 
 
 def wald(k, n, q, delta=DELTA):
-    """Direct standardisation with a delta-method (Wald) bound."""
+    """Direct standardisation with a delta-method (Wald) bound (comparator; strata without
+    source cases are dropped and q renormalised, as standardisation requires)."""
     k, n, q = _clean(k, n, q)
+    keep = n > 0
+    k, n, q = k[keep], n[keep], q[keep] / q[keep].sum()
     s = k / n
     se = np.sqrt(np.sum(q ** 2 * s * (1 - s) / n))
     return float(q @ s - stats.norm.ppf(1 - delta) * se)
@@ -80,6 +87,17 @@ def all_bounds(k, n, q, delta=DELTA, **jeff):
     p, plb = pooled(k, n, delta)
     return dict(pooled=p, pooled_lb=plb, point=point(k, n, q), jeffreys=jeffreys(k, n, q, delta, **jeff),
                 exact=exact(k, n, q, delta), any_mix=any_mix(k, n, delta))
+
+
+def local_cancers_needed(sens, eps, delta=DELTA, n_max=100_000):
+    """Smallest N for which the one-sided Clopper-Pearson bound on N local cancers, with the
+    expected sens * N of them detected (continuous in k), lies within eps of sens."""
+    def gap(N):
+        k = sens * N
+        return sens - float(stats.beta.ppf(delta, k, N - k + 1))
+    N = next(N for N in range(2, n_max) if gap(N) <= eps)
+    assert all(gap(M) <= eps for M in range(N, min(4 * N, n_max))), "gap not monotone after N"
+    return N
 
 
 def pooled_coverage(N, sens_s, sens_t, delta=DELTA):

@@ -34,7 +34,10 @@ def lower_cp(k, n, a):
 
 
 def bounds(K, n, q, rng, delta=dt.DELTA):
-    """K, n: (R, G) arrays. Returns dict of (R,) lower bounds for the target sensitivity."""
+    """K, n: (R, G) arrays. Returns dict of (R,) lower bounds for the target sensitivity.
+    Exact and Jeffreys certificates keep all G strata with the target mix q (Eq. 3): a stratum
+    without sampled cancers has l_d = 0 and S_d ~ Beta(1/2, 1/2). The Wald comparator drops it
+    and renormalises q, as direct standardisation must."""
     G = n.shape[1]
     has = n > 0
     qq = np.where(has, q, 0.0)
@@ -44,12 +47,12 @@ def bounds(K, n, q, rng, delta=dt.DELTA):
     se = np.sqrt(np.sum(qq ** 2 * s * (1 - s) / np.maximum(n, 1), 1))
     out["Wald"] = (qq * s).sum(1) - stats.norm.ppf(1 - delta) * se
     a = dt.sidak(delta, G)
-    out["Exact"] = (qq * lower_cp(K, n, a)).sum(1)
+    out["Exact"] = (q * lower_cp(K, n, a)).sum(1)
     jef = np.empty(len(K))
     for i in range(0, len(K), CHUNK):
-        k, m, w = K[i:i + CHUNK], n[i:i + CHUNK], qq[i:i + CHUNK]
+        k, m = K[i:i + CHUNK], n[i:i + CHUNK]
         S = rng.beta(k + 0.5, m - k + 0.5, size=(JEFF_DRAWS,) + k.shape)
-        jef[i:i + CHUNK] = np.quantile((S * w).sum(-1), delta, axis=0)
+        jef[i:i + CHUNK] = np.quantile((S * q).sum(-1), delta, axis=0)
     out["Jeffreys"] = jef
     return out
 

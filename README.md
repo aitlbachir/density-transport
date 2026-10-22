@@ -25,6 +25,10 @@ print(dt.all_bounds(k, n, q))       # pooled, pooled_lb, point, jeffreys, exact,
 
 `exact` is Eq. (3) of the paper (Sidak-level Clopper-Pearson bounds per stratum, weighted by `q`),
 `any_mix` holds for every target mix, and `jeffreys` is the approximately calibrated Monte Carlo version.
+All G strata enter the certificates, as in Eq. (3) and Proposition 2: a stratum without source cases
+contributes l_d = 0 to `exact` and `any_mix` and S_d ~ Beta(1/2, 1/2) to `jeffreys`.
+`local_cancers_needed(sens, eps)` gives the number of local cancers for which a one-sided 95%
+Clopper-Pearson bound comes within `eps` of `sens` (E4).
 The check of Eq. (4) is `z_check` in `experiments/rsna_posthoc.py`.
 
 ## Reproduce the paper

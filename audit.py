@@ -11,6 +11,8 @@ import os
 import sys
 from decimal import ROUND_HALF_UP, Decimal
 
+from scipy import stats
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -87,28 +89,34 @@ for row in cov(syn, "Pooled"):
     eq = eq2[str(row["N"])]["exact"]
     check("results E1", abs(row["coverage"] - eq) < 3 * (eq * (1 - eq) / e1["replicates"]) ** 0.5 + 1e-3,
           f"simulated pooled coverage {row['coverage']} agrees with Eq. (2) {eq:.4f} at N = {row['N']}")
-frag("results E1", f"with {big(5000)} cancers the bound overstates sensitivity by {pct(cov(syn, 'Pooled')[-1]['mean_diff'])} points")
+frag("results E1", f"with {big(5000)} cancers the bound exceeds $\\Sens_T$ by {pct(cov(syn, 'Pooled')[-1]['mean_diff'])} points on average")
 wald = cov(syn, "Wald")
 under = [x["coverage"] for x in wald if x["coverage"] < 0.95]
 check("results E1", wald[-1]["N"] == 5000 and wald[-1]["coverage"] >= 0.95 and len(under) == len(wald) - 1,
       "Wald under-covers below 5,000 cancers only")
-frag("results E1", f"under-covers below 5,000 cancers ({r(min(under), 3)} to {r(max(under), 3)})")
+frag("results E1", f"here under-covers below 5,000 cancers ({r(min(under), 3)} to {r(max(under), 3)})")
+check("results E1", min(x["coverage"] for x in cov(rp, "Wald")) >= 0.95, "Wald under-coverage is specific to the synthetic setting")
 js, jr = [x["coverage"] for x in cov(syn, "Jeffreys")], [x["coverage"] for x in cov(rp, "Jeffreys")]
-frag("results E1", f"covers in {r(min(js), 3)} to {r(max(js), 3)} of replicates ({r(min(jr), 3)} to {r(max(jr), 3)} with")
+frag("results E1", f"covers in {r(min(js), 3)} to {r(max(js), 3)} of replicates ({r(min(jr), 3)} to {r(max(jr), 3)} in the RSNA setting)")
 emin = min(x["coverage"] for x in cov(syn, "Exact") + cov(rp, "Exact"))
 emin_t = str(Decimal(repr(emin)).quantize(Decimal("0.001"), rounding="ROUND_DOWN"))
 ex = cov(syn, "Exact")
 frag("results E1", f"at least {emin_t} of replicates in both settings but lies {pct(-ex[0]['mean_diff'])} points below the truth "
      f"for 143 cancers and {pct(-ex[-1]['mean_diff'])} for 5,000")
 frag("E1 setup", f"$\\Sens_S={r(syn['sens_source'], 3)}$ and $\\Sens_T={r(syn['sens_target'], 3)}$")
-frag("E1 setup", "$q=(" + ",".join(f"{v:.3f}" for v in syn["q"]) + ")$")
-frag("Fig. 1 caption", f"{big(e1['replicates'])} replicates per size")
+frag("E1 setup", "$q=(" + ",".join(f"{v:.3f}" for v in syn["q"][:2]) + ",$ $" + ",".join(f"{v:.3f}" for v in syn["q"][2:]) + ")$")
+frag("Fig. 1 caption", f"E1, synthetic setting: coverage of $\\Sens_T$ by 95\\% lower bounds (markers: {big(e1['replicates'])} replicates per size")
 frag("E1 setup", "$s=(" + ",".join(f"{v:.2f}" for v in syn["s"][:2]) + ",$ $" + ",".join(f"{v:.2f}" for v in syn["s"][2:]) + ")$")
 frag("E1 setup", "$p=(" + ",".join(f"{v:.2f}" for v in syn["p"]) + ")$")
+s2, p2 = e1["rsna_profile"]["s"], e1["rsna_profile"]["p"]
+cnt = pre["flag10"]
+check("E1 setup", len(s2) == 3 and abs(sum(p2) - 1) < 1e-12, "RSNA setting: three strata, a cancer mix")
+check("E1 setup", abs(e1["rsna_profile"]["q"][0] - (syn["q"][0] + syn["q"][1])) < 1e-12 and e1["rsna_profile"]["q"][1:] == syn["q"][2:],
+      "RSNA setting: Korean mix merged to A+B, C, D")
 
 # E3, E4
 kw, bd = e34["kwon2024"], e34["badawy2023"]
-frag("E3 setup", f"{big(pub['kwon2024']['screens'])} Korean screening examinations with {pub['kwon2024']['cancers']} cancers")
+frag("E3 setup", f"{big(pub['kwon2024']['screens'])} Korean women (first screening, mean age {pub['kwon2024']['mean_age']}) with {pub['kwon2024']['cancers']} cancers")
 frag("E3 setup", "{}/{} (non-dense), {}/{} (heterogeneously dense) and {}/{} (extremely dense)".format(
     *[v for kn in zip(pub["kwon2024"]["k"], pub["kwon2024"]["n"]) for v in kn]))
 frag("E3 setup", "A {}/{}, B {}/{}, C {}/{}, D {}/{}".format(
@@ -126,9 +134,12 @@ frag("results E3", f"Exact certificates are looser ({pct(kw['exact'])}\\%, {pct(
 e4 = e34["e4"]
 c4, s4 = e4["cancers"], e4["screens_millions"]
 eps = sorted((float(k) for k in e34["e4"]["cancers"]), reverse=True)
-frag("E4 setup", "tolerance $\\varepsilon\\in\\{" + ",".join(f"{v:.2f}" for v in eps) + "\\}$")
-frag("results E4", f"needs {big(c4['0.1'])}, {big(c4['0.05'])} and {big(c4['0.03'])} cancers, about "
-     f"{r(s4['0.1'], 2)}, {r(s4['0.05'], 2)} and {r(s4['0.03'], 2)} million screens at "
+check("E4", eps == [0.10, 0.05, 0.03], "E4 tolerances 10, 5 and 3 points")
+check("E4", abs(e4["target_sens"] - kw["point"]) < 1e-12, "E4 target sensitivity is the transported Kwon point value")
+frag("results E4", f"detected at the transported rate ({pct(e4['target_sens'])}\\%)")
+thousands = lambda m: big(int(Decimal(repr(m * 1000)).quantize(Decimal(1), rounding=ROUND_HALF_UP)) * 1000)
+frag("results E4", f"within 10, 5 and 3 points of it with {big(c4['0.1'])}, {big(c4['0.05'])} and {big(c4['0.03'])} cancers, about "
+     f"{thousands(s4['0.1'])}, {thousands(s4['0.05'])} and {thousands(s4['0.03'])} screens at "
      f"{r(e4['cancers_per_1000_screens'], 2)} cancers per 1,000")
 
 # E2, RSNA counts: the post hoc run must reproduce the pre-specified aggregate counts
@@ -160,19 +171,28 @@ for key, label in (("old_to_young", "age $\\ge$50 $\\to$ 40--49"), ("young_to_ol
 frag("Table 1", f"RSNA, unit 49 $\\to$ other units ({us['women']['target_cancers']}) & Sens. & "
      f"{row(us['certs']['orig']['sens'], us['certs']['recal']['sens'])}")
 frag("Table 1", f" & Spec. & {row(us['certs']['orig']['spec'], us['certs']['recal']['spec'])}")
-frag("Table 1", f"CBIS-DDSM, val.\\ $\\to$ test & Sens. & {row(cb['sens'])}")
+frag("Table 1", f"CBIS-DDSM, val.\\ $\\to$ test ({sum(cb['sens']['test_strata'][1])}) & Sens. & {row(cb['sens'])}")
 frag("Table 1", f" & Spec. & {row(cb['spec'])}")
 
 # E2 setup
-frag("E2 setup", f"(4,500 women, {us['women']['source_cancers']} cancers)".replace("4,500", big(us["women"]["source"])))
-frag("E2 setup", f"({big(us['women']['target_noncancer'])} women without cancer, {us['women']['target_cancers']} cancers)")
+check("E2 setup", sum(us["target_orig"]["nC"]) == us["women"]["target_cancers"] and sum(us["source"]["nC"]) == us["women"]["source_cancers"],
+      "unit shift: cancer counts are cancer breasts")
+check("E2 setup", sum(v["noncancer_women"] for v in us["per_unit"].values()) == us["women"]["target_noncancer"],
+      "unit shift: per-unit women add up to the target women with non-cancer breasts")
+frag("E2 setup", f"({big(us['women']['source'])} women: {big(sum(us['source']['nN']))} non-cancer breasts, "
+     f"{us['women']['source_cancers']} cancers)")
+frag("E2 setup", f"({big(sum(us['target_orig']['nN']))} non-cancer breasts of {big(us['women']['target_noncancer'])} women, "
+     f"{us['women']['target_cancers']} cancers)")
 
 # Results, pre-specified age shift
 oy = pre["flag10"]["old_to_young"]
 frag("results E2", f"the {oy['sens']['n_target']} target cancers gave {r(oy['sens']['observed'], 3)}")
 check("results E2", oy["sens"]["observed"] < min(oy["sens"][k] for k in ("pooled_lb", "point", "jeffreys", "exact")),
       "young target sensitivity below all bounds")
-frag("results E2", f"(${p_text(oy['sens']['p_vs_exact'])}$ against the exact certificate)")
+frag("results E2", f"too few to reject any at the 5\\% level (${p_text(oy['sens']['p_vs_exact'])}$ against the exact certificate)")
+kt_, nt_ = sum(oy["sens"]["target_counts"][0]), sum(oy["sens"]["target_counts"][1])
+p_bounds = {k: stats.binom.cdf(kt_, nt_, oy["sens"][k]) for k in ("pooled_lb", "jeffreys", "exact")}
+check("results E2", min(p_bounds.values()) > 0.05, f"no bound rejected at 5%: one-sided p {({k: round(v, 3) for k, v in p_bounds.items()})}")
 fs, ft = oy["spec"]["flag_rate_source"], oy["spec"]["flag_rate_target"]
 check("results E2", all(a < b for a, b in zip(ft, fs)), "fewer flags in every stratum for women aged 40-49")
 frag("results E2", "A+B {}\\% vs {}\\%, C {}\\% vs {}\\%, D {}\\% vs {}\\%".format(
@@ -182,13 +202,14 @@ nc, cc = wl["noncancer_f10"], wl["cancer_f10"]
 frag("results E2", f"Mantel--Haenszel odds ratio {r(1 / nc['OR'], 2)}, woman-level bootstrap 95\\% interval "
      f"{r(1 / nc['boot_ci'][1], 2)}--{r(1 / nc['boot_ci'][0], 2)}, permutation ${p_text(nc['perm_p'])}$")
 check("results E2", nc["perm_p"] == 0 and nc["perm_resolution"] <= 1e-4, "permutation p below 1e-4 (no permutation as extreme)")
-frag("results E2", f"(odds ratio {r(1 / cc['OR'], 2)}, ${p_text(cc['perm_p'])}$)")
+frag("results E2", f"(odds ratio {r(1 / cc['OR'], 2)}, permutation ${p_text(cc['perm_p'])}$)")
 yo5 = pre["flag5"]["young_to_old"]["spec"]
 yo10 = pre["flag10"]["young_to_old"]["spec"]
 for d, lab in ((yo10, "10%"), (yo5, "5%")):
     check("results E2", all(d[k] > d["observed"] for k in ("pooled_lb", "point", "jeffreys", "exact", "any_mix")),
           f"reverse direction at {lab}: every certificate exceeds the observed specificity")
-frag("results E2", f"(at 5\\%, too: {r(yo5['exact'], 3)} vs {r(yo5['observed'], 3)})")
+frag("results E2", f"(5\\% operating point: exact certificate {r(yo5['exact'], 3)}, observed {r(yo5['observed'], 3)})")
+check("results E2", yo5["exact"] == min(yo5[k] for k in ("pooled_lb", "jeffreys", "exact")), "the exact certificate is the lowest at 5%")
 uo = us["certs"]["orig"]
 frag("results E2", f"flagged {pct(1 - uo['spec']['observed'])}\\% of non-cancer breasts instead of a transported "
      f"{pct(1 - uo['spec']['point'])}\\%, and detected {round(uo['sens']['observed'] * us['women']['target_cancers'])} "
@@ -204,7 +225,8 @@ for m in ("sens", "spec"):
 
 # Check (Eq. 4)
 sz = [v for g in ("old", "young") for v in ph["check_size_halves"][g].values()]
-frag("results check", f"rejected in {pct(min(sz))}\\% to {pct(max(sz))}\\% of resamples (nominal 5\\%)")
+ns_sz = sorted(int(n) for n in ph["check_size_halves"]["old"])
+frag("results check", f"on $n={ns_sz[0]}$ to {ns_sz[-1]} local women rejected in {pct(min(sz))}\\% to {pct(max(sz))}\\% of resamples (nominal 5\\%)")
 ca_ = ph["check_age"]
 po, py = ca_["power_old_to_young"], ca_["power_young_to_old"]
 frag("results check", f"power {pw(po['100'])}, {pw(po['200'])} and {pw(po['300'])} for $n=100$, 200 and 300 local women "
@@ -240,7 +262,8 @@ frag("results re-set", f"specificity stayed within {r(rl['old_to_young']['n200']
      f"and {r(rl['young_to_old']['n200']['spec'][1], 2)}--{r(rl['young_to_old']['n200']['spec'][2], 2)} in 95\\% of resamples "
      f"(transported {r(ca['old_to_young']['orig']['spec']['point'], 3)}, {r(ca['young_to_old']['orig']['spec']['point'], 3)})")
 yr = ca["young_to_old"]["recal"]["sens"]
-frag("results re-set", f"sensitivity ({r(yr['observed'], 3)}) contained the transported point ({r(yr['point'], 3)})")
+frag("results re-set", f"sensitivity ({r(yr['observed'], 3)} {ci(yr['obs_ci'])}) covered the transported point ({r(yr['point'], 3)}) "
+     f"and exceeded every certificate")
 check("results re-set", yr["obs_ci"][0] <= yr["point"] <= yr["obs_ci"][1], "reverse: interval contains the transported point")
 check("results re-set", all(yr["observed"] > yr[k] for k in ("pooled_lb", "jeffreys", "exact", "any_mix")),
       "reverse: re-set sensitivity exceeds every certificate")
@@ -258,12 +281,31 @@ frag("results re-set", f"{round(oyr['observed'] * nt)} of {nt} cancers were dete
 check("results re-set", oyr["obs_ci"][0] <= oyr["point"] <= oyr["obs_ci"][1] and oyr["observed"] < oyr["exact"],
       "age: interval contains the point, observed below the exact certificate")
 
+# The post hoc certificates (computed on Kaggle) must equal those of the current dtransport code
+sys.path.insert(0, ROOT)
+import dtransport as dt  # noqa: E402
+
+
+def recheck(src, tgt, stored, where):
+    for m, k_src, n_src, q in (("sens", src["kC"], src["nC"], tgt["nC"]),
+                               ("spec", [n - k for k, n in zip(src["kN"], src["nN"])], src["nN"], tgt["nN"])):
+        new = dt.all_bounds(k_src, n_src, q)
+        ok = all(abs(new[x] - stored[m][x]) < 1e-9 for x in ("pooled", "pooled_lb", "point", "exact", "any_mix"))
+        ok = ok and abs(new["jeffreys"] - stored[m]["jeffreys"]) < 1e-3
+        check("code", ok, f"{where} {m}: stored certificates equal the current dtransport code")
+
+
+for lab, P in (("512", ph), ("1024", ph2)):
+    for key in ("old_to_young", "young_to_old"):
+        recheck(P["recal_age"][key]["src"], P["recal_age"][key]["orig"], P["certs_age"][key]["orig"], f"{lab} {key}")
+    recheck(P["unit_shift"]["source"], P["unit_shift"]["target_orig"], P["unit_shift"]["certs"]["orig"], f"{lab} unit shift")
+
 # 1024 x 1024 rerun
 u2 = ph2["unit_shift"]
 r2 = u2["certs"]["recal"]["sens"]
 frag("limitations", f"(site-1 AUC {r(ph2['auc']['site1'], 2)} vs {r(ph['auc']['site1'], 2)})")
 frag("limitations", f"({round(r2['observed'] * u2['women']['target_cancers'])} of {u2['women']['target_cancers']}; "
-     f"bounds {r(r2['exact'], 2)}, {r(r2['jeffreys'], 2)})")
+     f"exact {r(r2['exact'], 3)}, Jeffreys {r(r2['jeffreys'], 3)})")
 check("limitations", r2["exact"] <= r2["observed"] < r2["jeffreys"], "1024: exact but not Jeffreys coverage under the unit shift")
 z2 = ph2["check_age"]["z_full"]
 check("limitations", min(abs(v) for v in z2.values()) > 1.959964, "1024: the check rejects the age shift in both directions")

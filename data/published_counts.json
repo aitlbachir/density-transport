@@ -2,8 +2,8 @@
  "korean_cancer_mix_4": {"strata": ["A", "B", "C", "D"], "q": [0.148, 0.235, 0.378, 0.239],
    "source": "Park et al., Cancers 2020;12(6):1391, share of incident cancers by BI-RADS density"},
  "kwon2024": {"strata": ["non-dense (A+B)", "heterogeneously dense (C)", "extremely dense (D)"],
-   "k": [14, 42, 40], "n": [18, 66, 59], "screens": 89855, "cancers": 143,
-   "source": "Kwon et al., Breast Cancer Res 2024;26:68, Table 3 (AI, radiologist density); counts identified from the reported percentages and exact 95% intervals"},
+   "k": [14, 42, 40], "n": [18, 66, 59], "screens": 89855, "cancers": 143, "mean_age": 43.5,
+   "source": "Kwon et al., Breast Cancer Res 2024;26:68, Table 3 (AI, radiologist density); counts identified from the reported percentages and exact 95% intervals; 89,855 women at their first screening, mean age 43.5 years (abstract)"},
  "badawy2023": {"strata": ["A", "B", "C", "D"], "k": [5, 31, 54, 13], "n": [5, 31, 57, 17],
    "source": "Badawy et al., Egypt J Radiol Nucl Med 2023;54:178, Table 5 (AI-assessed ACR density)"}
 }

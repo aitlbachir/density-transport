@@ -5,7 +5,6 @@ import os
 import sys
 
 import numpy as np
-from scipy import stats
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import dtransport as dt
@@ -14,17 +13,11 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 
 
 def e4(s, q, eps_list=(0.10, 0.05, 0.03), delta=dt.DELTA):
-    """Smallest N with point - exact certificate <= eps, when N q_d cancers fall in stratum d and
-    a fraction s_d of them is detected (expected counts, continuous in k)."""
-    a = dt.sidak(delta, len(s))
+    """Local validation: smallest number N of local cancers (arriving at the target mix q, so the
+    target sensitivity is P = sum_d q_d s_d) for which a one-sided 95% Clopper-Pearson bound on them
+    lies within eps of P, with the expected P N detections (continuous in k)."""
     P = float(q @ s)
-
-    def gap(N):
-        n = q * N
-        k = s * n
-        return P - float(q @ stats.beta.ppf(a, k, n - k + 1))
-
-    return {str(eps): next(N for N in range(10, 100_000) if gap(N) <= eps) for eps in eps_list}
+    return P, {str(eps): dt.local_cancers_needed(P, eps, delta) for eps in eps_list}
 
 
 if __name__ == "__main__":
@@ -40,8 +33,8 @@ if __name__ == "__main__":
     kw = pub["kwon2024"]
     s = np.array(kw["k"]) / np.array(kw["n"])
     rate = kw["cancers"] / kw["screens"]
-    need = e4(s, q3)
-    out["e4"] = dict(cancers=need, cancers_per_1000_screens=1000 * rate,
+    P, need = e4(s, q3)
+    out["e4"] = dict(target_sens=P, cancers=need, cancers_per_1000_screens=1000 * rate,
                      screens_millions={e: N / rate / 1e6 for e, N in need.items()})
     json.dump(out, open(os.path.join(ROOT, "results", "e3_e4.json"), "w"), indent=1)
     for key in ("kwon2024", "badawy2023"):

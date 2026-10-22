@@ -179,14 +179,14 @@
    {
     "N": 143,
     "method": "Exact",
-    "coverage": 0.9985,
-    "mean_diff": -0.12465863778733753
+    "coverage": 1.0,
+    "mean_diff": -0.12505147055257543
    },
    {
     "N": 143,
     "method": "Jeffreys",
-    "coverage": 0.9168,
-    "mean_diff": -0.053000916650053374
+    "coverage": 0.9198,
+    "mean_diff": -0.05330414152562717
    },
    {
     "N": 300,
